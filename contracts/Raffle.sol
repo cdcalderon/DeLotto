@@ -1,6 +1,7 @@
 // SPDX-License-Identifier:MIT
 
 pragma solidity ^0.8.17;
+import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 
 error Raffle__NotEnoughEthEntered();
 
@@ -27,6 +28,9 @@ contract Raffle {
         emit RaffleEnter(msg.sender);
     }
 
+    function requestRandomWinner() external {}
+
+    /* View / Pure functions */
     function getEntranceFee() public view returns (uint256) {
         return i_entranceFee;
     }
