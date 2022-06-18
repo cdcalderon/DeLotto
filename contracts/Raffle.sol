@@ -5,10 +5,12 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 
 error Raffle__NotEnoughEthEntered();
+error Raffle__TransferFailed();
 
 contract Raffle is VRFConsumerBaseV2 {
     /* State variables */
     uint256 private immutable i_entranceFee;
+    uint256 private immutable i_interval;
     VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
     address payable[] private s_players;
     uint64 private immutable i_subscriptionId;
@@ -16,9 +18,12 @@ contract Raffle is VRFConsumerBaseV2 {
     uint32 private immutable i_callbackGasLimit;
     uint16 private constant REQUEST_CONFIRMATIONS = 3;
     uint32 private constant NUM_WORDS = 1;
+    address private s_recentWinner;
 
     /* Events */
     event RaffleEnter(address indexed player);
+    event RequestedRaffleWinner(uint256 indexed requestId);
+    event WinnerPicked(address indexed winnerAddress);
 
     constructor(
         address vrfCoordinatorV2,
@@ -33,6 +38,7 @@ contract Raffle is VRFConsumerBaseV2 {
         i_gasLane = gasLane;
         i_subscriptionId = subscriptionId;
         i_callbackGasLimit = callbackGasLimit;
+        i_interval = interval;
     }
 
     function enterRaffle() public payable {
@@ -46,19 +52,30 @@ contract Raffle is VRFConsumerBaseV2 {
         emit RaffleEnter(msg.sender);
     }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords)
-        internal
-        override
-    {}
+    function fulfillRandomWords(
+        uint256, /*requestId*/
+        uint256[] memory randomWords
+    ) internal override {
+        uint256 indexOfWinner = randomWords[0] % s_players.length;
+        address payable recentWinner = s_players[indexOfWinner];
+        s_recentWinner = recentWinner;
+        (bool success, ) = recentWinner.call{value: address(this).balance}("");
+        if (!success) {
+            revert Raffle__TransferFailed();
+        }
+        emit WinnerPicked(recentWinner);
+    }
 
     function requestRandomWinner() external {
-        i_vrfCoordinator.requestRandomWords(
+        uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane,
             i_subscriptionId,
             REQUEST_CONFIRMATIONS,
             i_callbackGasLimit,
             NUM_WORDS
         );
+
+        emit RequestedRaffleWinner(requestId);
     }
 
     /* View / Pure functions */
@@ -68,5 +85,9 @@ contract Raffle is VRFConsumerBaseV2 {
 
     function getPlayer(uint256 index) public view returns (address) {
         return s_players[index];
+    }
+
+    function getRecentWinner() public view returns (address) {
+        return s_recentWinner;
     }
 }
