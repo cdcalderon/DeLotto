@@ -18,4 +18,12 @@ module.exports = {
             },
         ],
     },
+    namedAccounts: {
+        deployer: {
+            default: 0,
+        },
+        player: {
+            default: 1,
+        },
+    },
 }
